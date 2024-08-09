@@ -5,10 +5,11 @@ FROM nvcr.io/nvidia/pytorch:24.02-py3
 ARG APEX_TAG=810ffae374a2b9cb4b5c5e28eaeca7d7998fca0c
 ARG TE_TAG=bfe21c3d68b0a9951e5716fb520045db53419c5e
 ARG MLM_TAG=fbb375d4b5e88ce52f5f7125053068caff47f93f
-ARG NEMO_TAG=10274c941841c9cc30d1db50699d7523851d9fea
+ARG NEMO_BRANCH=nemo-aligner-trt-fix
+ARG TENSOR_LLM_BRANCH=nemo-aligner-trt-fix
 ARG PYTRITON_VERSION=0.4.1
 ARG PROTOBUF_VERSION=4.24.4
-ARG ALIGNER_COMMIT=v0.3.0.trtllm
+ARG ALIGNER_COMMIT=v0.3.0.trtllm-fix
 
 # if you get errors building TE or Apex, decrease this to 4
 ARG MAX_JOBS=8
@@ -44,13 +45,12 @@ RUN pip install --upgrade-strategy only-if-needed nvidia-pytriton==$PYTRITON_VER
 RUN pip install -U --no-deps protobuf==$PROTOBUF_VERSION
 RUN pip install --upgrade-strategy only-if-needed jsonlines
 
-# NeMo
-RUN git clone https://github.com/NVIDIA/NeMo.git && \
+# NeMo with customized fix
+RUN git clone https://github.com/renweizhukov/NeMo.git && \
     cd NeMo && \
     git pull && \
-    if [ ! -z $NEMO_TAG ]; then \
-        git fetch origin $NEMO_TAG && \
-        git checkout FETCH_HEAD; \
+    if [ ! -z $NEMO_BRANCH ]; then \
+        git checkout $NEMO_BRANCH; \
     fi && \
     pip uninstall -y nemo_toolkit sacrebleu && \
     pip install -e ".[nlp]" && \
@@ -67,8 +67,8 @@ RUN pip uninstall -y megatron-core && \
     fi && \
     pip install -e .
 
-# NeMo Aligner
-RUN git clone https://github.com/NVIDIA/NeMo-Aligner.git && \
+# NeMo Aligner with customized Dockerfile
+RUN git clone https://github.com/renweizhukov/NeMo-Aligner.git && \
     cd NeMo-Aligner && \
     git pull && \
     if [ ! -z $ALIGNER_COMMIT ]; then \
@@ -82,11 +82,12 @@ RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.d
     apt-get install git-lfs && \
     git lfs install
 
-# TRTLLM-0.9
-RUN git clone https://github.com/NVIDIA/TensorRT-LLM.git && \
+# TRTLLM-0.9.0 with customized fix
+RUN git clone https://github.com/renweizhukov/TensorRT-LLM.git && \
     cd TensorRT-LLM && \
-    git checkout v0.9.0 && \
-    git apply ../NeMo-Aligner/trtllm.patch && \
+    if [ ! -z $TENSOR_LLM_BRANCH ]; then \
+        git checkout $TENSOR_LLM_BRANCH; \
+    fi && \
     . docker/common/install_tensorrt.sh && \
     python3 ./scripts/build_wheel.py --trt_root /usr/local/tensorrt 
 
